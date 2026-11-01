@@ -275,49 +275,6 @@
         <div id="category-filter-bar" class="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-800/70"></div>
       </div>
 
-      <!-- Collapsible Custom Wrong-Slot Builder -->
-      <details class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 group">
-        <summary class="flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-slate-300 hover:text-white">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[11px]">自訂錯槽產生器</span>
-            <span class="text-slate-400 font-normal">自由指定「哪一組目標 Pair」卡在「哪個錯槽」即時模擬</span>
-          </div>
-          <span class="text-slate-500 group-open:rotate-180 transition-transform">▼</span>
-        </summary>
-        <div class="pt-3 mt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end text-xs">
-          <div class="flex flex-col gap-1">
-            <label class="text-slate-400">1. 目標 Pair (正確槽)</label>
-            <select id="ws-gen-target" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-semibold text-emerald-300 outline-none">
-              <option value="FR" selected>綠橘 Pair (FR)</option>
-              <option value="BR">橘藍 Pair (BR)</option>
-              <option value="FL">綠紅 Pair (FL)</option>
-              <option value="BL">藍紅 Pair (BL)</option>
-            </select>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-slate-400">2. 目前卡在哪個錯槽</label>
-            <select id="ws-gen-wrong" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-semibold text-amber-300 outline-none">
-              <option value="BR" selected>BR 右後槽 (橘藍)</option>
-              <option value="FL">FL 左前槽 (綠紅)</option>
-              <option value="BL">BL 左後槽 (藍紅)</option>
-              <option value="FR">FR 右前槽 (綠橘)</option>
-            </select>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-slate-400">3. 錯槽內卡住型態</label>
-            <select id="ws-gen-type" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-semibold text-sky-300 outline-none">
-              <option value="PAIR_SOLVED" selected>整組標配 Pair 連好</option>
-              <option value="PAIR_FLIPPED">整組反相 Pair 連塊</option>
-              <option value="EDGE_ONLY">僅「邊塊」卡在錯槽</option>
-              <option value="CORNER_ONLY">僅「角塊」卡在錯槽</option>
-            </select>
-          </div>
-          <button id="btn-generate-wrong-slot" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition h-[34px]">
-            生成並播放 ▶
-          </button>
-        </div>
-      </details>
-
       <!-- Unified Cases Container -->
       <div id="cases-list-container" class="flex flex-col gap-6 pb-10"></div>
 
@@ -2317,9 +2274,88 @@
 
         const [tx, tz] = SLOT_HOME_COORDS[targetSlot] || [1, 1];
         const isTargetPair = (hx === tx && hz === tz && (hy === -1 || hy === 0));
-        return isTargetPair ? sticker.color : '#334155';
+        return isTargetPair ? sticker.color : '#1e293b';
       }
       return sticker.color;
+    }
+
+    // Helper to check if a cubie belongs to the active target F2L pair
+    function isTargetPairCubie(cubie, targetSlot = 'FR') {
+      const [hx, hy, hz] = cubie.home;
+      const [tx, tz] = SLOT_HOME_COORDS[targetSlot] || [1, 1];
+      return hx === tx && hz === tz && (hy === -1 || hy === 0);
+    }
+
+    // Transform a relative wrongSlot (defined for FR) to the actual wrong slot for any targetSlot
+    const SLOT_YAW_INDEX = { FR: 0, BR: 1, BL: 2, FL: 3 };
+    const INDEX_TO_SLOT = ['FR', 'BR', 'BL', 'FL'];
+    function getActualWrongSlot(baseWrongRel, targetSlot) {
+      if (!baseWrongRel) return null;
+      const baseIdx = SLOT_YAW_INDEX[baseWrongRel] ?? 0;
+      const targetIdx = SLOT_YAW_INDEX[targetSlot] ?? 0;
+      return INDEX_TO_SLOT[(baseIdx + targetIdx) % 4];
+    }
+
+    /**
+     * Generates a compact 2x2 Top-Down Slot Transfer Radar SVG
+     * Shows BL (top-left), BR (top-right), FL (bottom-left), FR (bottom-right)
+     * Highlights the Wrong Slot in Amber and Target Slot in Emerald with a transfer arrow!
+     */
+    function createSlotRadarHTML(wrongSlot, targetSlot) {
+      const coords = {
+        BL: { x: 11, y: 11, label: 'BL' },
+        BR: { x: 33, y: 11, label: 'BR' },
+        FL: { x: 11, y: 33, label: 'FL' },
+        FR: { x: 33, y: 33, label: 'FR' }
+      };
+      const w = coords[wrongSlot] || coords.BR;
+      const t = coords[targetSlot] || coords.FR;
+
+      // Shorten arrow line slightly so it doesn't overlap node centers
+      const dx = t.x - w.x;
+      const dy = t.y - w.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const x1 = w.x + (dx / len) * 6;
+      const y1 = w.y + (dy / len) * 6;
+      const x2 = t.x - (dx / len) * 7;
+      const y2 = t.y - (dy / len) * 7;
+
+      const slotsSvg = ['BL', 'BR', 'FL', 'FR'].map(s => {
+        const c = coords[s];
+        const isWrong = s === wrongSlot;
+        const isTarget = s === targetSlot;
+        const fill = isWrong ? '#f59e0b' : (isTarget ? '#10b981' : '#1e293b');
+        const stroke = isWrong ? '#fde68a' : (isTarget ? '#6ee7b7' : '#334155');
+        const textFill = (isWrong || isTarget) ? '#090d16' : '#64748b';
+        return `
+          <rect x="${c.x - 7}" y="${c.y - 7}" width="14" height="14" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/>
+          <text x="${c.x}" y="${c.y + 2.5}" text-anchor="middle" font-size="6.5" font-family="JetBrains Mono, monospace" font-weight="700" fill="${textFill}">${c.label}</text>
+        `;
+      }).join('');
+
+      const arrowSvg = wrongSlot !== targetSlot ? `
+        <defs>
+          <marker id="arrow-${wrongSlot}-${targetSlot}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+          </marker>
+        </defs>
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#38bdf8" stroke-width="1.8" marker-end="url(#arrow-${wrongSlot}-${targetSlot})" />
+      ` : '';
+
+      return `
+        <div class="inline-flex items-center gap-1.5 bg-slate-950/90 border border-slate-800 rounded-lg px-1.5 py-1" title="頂視角槽位轉移雷達：橘色(${wrongSlot})為目前卡住的錯槽 ➔ 綠色(${targetSlot})為要入的目標槽">
+          <svg width="44" height="44" viewBox="0 0 44 44" class="shrink-0">
+            <rect x="1" y="1" width="42" height="42" rx="6" fill="#090d16" stroke="#1e293b" stroke-width="1"/>
+            ${slotsSvg}
+            ${arrowSvg}
+          </svg>
+          <div class="flex flex-col text-[10px] leading-tight pr-0.5">
+            <span class="text-amber-300 font-semibold">卡在: ${wrongSlot}</span>
+            <span class="text-sky-400 font-mono-alg">↓ 移入</span>
+            <span class="text-emerald-300 font-semibold">目標: ${targetSlot}</span>
+          </div>
+        </div>
+      `;
     }
 
     /*************************************************************************
@@ -2467,13 +2503,14 @@
     }
 
     function updateThreeStickerColors() {
+      const effectiveMask = (appState.activeWrongSlot && appState.maskMode === 'f2l') ? 'slot' : appState.maskMode;
       for (const tc of threeCubies) {
         const fakeCubie = { home: tc.home };
         for (const sm of tc.stickerMeshes) {
           const hex = getStickerDisplayColor(
             fakeCubie,
             { color: sm.baseColor },
-            appState.maskMode,
+            effectiveMask,
             appState.activeAlgSlot
           );
           sm.mat.color.set(hex);
@@ -2600,50 +2637,54 @@
     /*************************************************************************
      * 3B. CHINESE MNEMONIC GENERATOR (口訣生成器)
      * Exact mapping requested:
-     *   F = 壓, F' = 回, F2 = 壓壓
+     *   F = 壓, F' = 回, F2 = 壓兩下
      *   U = 左, U' = 右, U2 = 左左
      *   R = 上, R' = 下, R2 = 上上
      *   L' = 上, L = 下, L2 = 下下
      *************************************************************************/
     function tokenToChineseMnemonic(rawToken) {
       const map = {
-        "F":  { word: "壓", hand: "" },
-        "F'": { word: "回", hand: "" },
-        "F2": { word: "壓兩下", hand: "" },
+        "F":   { word: "壓", hand: "" },
+        "F'":  { word: "回", hand: "" },
+        "F2":  { word: "壓兩下", hand: "" },
         "F2'": { word: "回兩下", hand: "" },
-        "U":  { word: "右", hand: "" },
-        "U'": { word: "左", hand: "" },
-        "U2": { word: "右右", hand: "" },
-        "U2'": { word: "左左", hand: "" },
-        "R":  { word: "上", hand: "右" },
-        "R'": { word: "下", hand: "右" },
-        "R2": { word: "上上", hand: "右" },
+        "U":   { word: "左", hand: "" },
+        "U'":  { word: "右", hand: "" },
+        "U2":  { word: "左左", hand: "" },
+        "U2'": { word: "右右", hand: "" },
+        "R":   { word: "上", hand: "右" },
+        "R'":  { word: "下", hand: "右" },
+        "R2":  { word: "上上", hand: "右" },
         "R2'": { word: "下下", hand: "右" },
-        "L'": { word: "上", hand: "左" },
-        "L":  { word: "下", hand: "左" },
-        "L2": { word: "下下", hand: "左" },
+        "L'":  { word: "上", hand: "左" },
+        "L":   { word: "下", hand: "左" },
+        "L2":  { word: "下下", hand: "左" },
         "L2'": { word: "上上", hand: "左" },
-        "r":  { word: "右雙上", hand: "r" },
-        "r'": { word: "右雙下", hand: "r'" },
-        "r2": { word: "右雙上上", hand: "r2" },
-        "l'": { word: "左雙上", hand: "l'" },
-        "l":  { word: "左雙下", hand: "l" },
-        "f":  { word: "雙層壓", hand: "f" },
-        "f'": { word: "雙層回", hand: "f'" },
-        "d":  { word: "底左", hand: "d" },
-        "d'": { word: "底右", hand: "d'" },
-        "u":  { word: "雙層左", hand: "u" },
-        "u'": { word: "雙層右", hand: "u'" },
-        "B":  { word: "後壓", hand: "B" },
-        "B'": { word: "後回", hand: "B'" },
-        "B2": { word: "後壓兩下", hand: "B2" },
-        "S":  { word: "中壓", hand: "S" },
-        "S'": { word: "中回", hand: "S'" },
-        "M":  { word: "中下", hand: "M" },
-        "M'": { word: "中上", hand: "M'" },
-        "y":  { word: "轉右(y)", hand: "y" },
-        "y'": { word: "轉左(y')", hand: "y'" },
-        "y2": { word: "轉半圈(y2)", hand: "y2" }
+        "r":   { word: "右雙上", hand: "r" },
+        "r'":  { word: "右雙下", hand: "r'" },
+        "r2":  { word: "右雙上上", hand: "r2" },
+        "l'":  { word: "左雙上", hand: "l'" },
+        "l":   { word: "左雙下", hand: "l" },
+        "f":   { word: "雙層壓", hand: "f" },
+        "f'":  { word: "雙層回", hand: "f'" },
+        "d":   { word: "底左", hand: "d" },
+        "d'":  { word: "底右", hand: "d'" },
+        "u":   { word: "雙層左", hand: "u" },
+        "u'":  { word: "雙層右", hand: "u'" },
+        "D":   { word: "底右", hand: "D" },
+        "D'":  { word: "底左", hand: "D'" },
+        "B":   { word: "後壓", hand: "B" },
+        "B'":  { word: "後回", hand: "B'" },
+        "B2":  { word: "後壓兩下", hand: "B2" },
+        "S":   { word: "中壓", hand: "S" },
+        "S'":  { word: "中回", hand: "S'" },
+        "S2":  { word: "中壓兩下", hand: "S2" },
+        "M":   { word: "中下", hand: "M" },
+        "M'":  { word: "中上", hand: "M'" },
+        "M2":  { word: "中下兩下", hand: "M2" },
+        "y":   { word: "轉右(y)", hand: "y" },
+        "y'":  { word: "轉左(y')", hand: "y'" },
+        "y2":  { word: "轉半圈(y2)", hand: "y2" }
       };
       return map[rawToken] || { word: rawToken, hand: "" };
     }
@@ -2721,8 +2762,15 @@
     }
 
     /*************************************************************************
-     * 4. 2D ISOMETRIC CANVAS THUMBNAIL RENDERER (DYNAMIC HI-DPI SCALING)
+     * 4. 2D ISOMETRIC CANVAS THUMBNAIL RENDERER (SMART WRONG-SLOT HIGHLIGHT)
      *************************************************************************/
+    const CAM_YAW_FACE_LABELS = {
+      0: { left: 'F綠', right: 'R橘', leftColor: '#22c55e', rightColor: '#ff7a00' },
+      1: { left: 'R橘', right: 'B藍', leftColor: '#ff7a00', rightColor: '#3b82f6' },
+      2: { left: 'B藍', right: 'L紅', leftColor: '#3b82f6', rightColor: '#ef4444' },
+      3: { left: 'L紅', right: 'F綠', leftColor: '#ef4444', rightColor: '#22c55e' }
+    };
+
     function renderCubeThumbnail(canvas, algStr, maskMode, targetSlot, caseId = 0, wrongSlot = null, customSize = 84) {
       const ctx = canvas.getContext('2d');
       const dpr = window.devicePixelRatio || 1;
@@ -2737,6 +2785,10 @@
       ctx.clearRect(0, 0, width, height);
 
       const cubies = computeCaseStartLogicalCube(algStr);
+
+      // For wrong-slot cases (#42-#95), automatically use 'slot' focus mode so the 3 irrelevant
+      // solved slots are dimmed to dark slate, and the trapped target pieces pop out with high contrast!
+      const effectiveMask = (wrongSlot && maskMode === 'f2l') ? 'slot' : maskMode;
 
       let camYaw = 0;
       const slotToView = wrongSlot || targetSlot;
@@ -2759,19 +2811,22 @@
         return [x, y, z];
       }
 
-      function getStickerAtCam(camX, camY, camZ, camNormal) {
+      function getStickerInfoAtCam(camX, camY, camZ, camNormal) {
         const [wx, wy, wz] = camToWorld(camX, camY, camZ);
         const [wnx, wny, wnz] = camToWorld(camNormal[0], camNormal[1], camNormal[2]);
         const c = cubies.find(cb => cb.pos[0] === wx && cb.pos[1] === wy && cb.pos[2] === wz);
-        if (!c) return FACE_COLORS.GREY;
+        if (!c) return { color: FACE_COLORS.GREY, isTarget: false };
         const st = c.stickers.find(s => s.normal[0] === wnx && s.normal[1] === wny && s.normal[2] === wnz);
-        if (!st) return FACE_COLORS.GREY;
-        return getStickerDisplayColor(c, st, maskMode, targetSlot);
+        if (!st) return { color: FACE_COLORS.GREY, isTarget: false };
+        return {
+          color: getStickerDisplayColor(c, st, effectiveMask, targetSlot),
+          isTarget: isTargetPairCubie(c, targetSlot)
+        };
       }
 
       const cx = width / 2;
-      const cy = height / 2;
-      const s = width * 0.132; // Scales crisply to fill ~82% of canvas
+      const cy = wrongSlot ? (height / 2 - 3) : (height / 2);
+      const s = width * (wrongSlot ? 0.124 : 0.132);
       const cos30 = Math.cos(Math.PI / 6);
       const sin30 = Math.sin(Math.PI / 6);
 
@@ -2782,7 +2837,7 @@
         ];
       }
 
-      function drawQuad(p1, p2, p3, p4, fillColor) {
+      function drawQuad(p1, p2, p3, p4, fillColor, highlightTarget = false) {
         ctx.beginPath();
         ctx.moveTo(p1[0], p1[1]);
         ctx.lineTo(p2[0], p2[1]);
@@ -2791,35 +2846,73 @@
         ctx.closePath();
         ctx.fillStyle = fillColor;
         ctx.fill();
-        ctx.lineWidth = Math.max(1.1, width * 0.015);
-        ctx.strokeStyle = '#090d16';
-        ctx.stroke();
+        if (highlightTarget) {
+          ctx.lineWidth = Math.max(1.8, width * 0.022);
+          ctx.strokeStyle = '#f8fafc';
+          ctx.stroke();
+        } else {
+          ctx.lineWidth = Math.max(1.0, width * 0.014);
+          ctx.strokeStyle = '#090d16';
+          ctx.stroke();
+        }
       }
 
       const gap = 0.05;
+      const targetQuads = [];
+
+      // Top face (U)
       for (let ix = -1; ix <= 1; ix++) {
         for (let iz = -1; iz <= 1; iz++) {
-          const color = getStickerAtCam(ix, 1, iz, [0, 1, 0]);
+          const info = getStickerInfoAtCam(ix, 1, iz, [0, 1, 0]);
           const x0 = ix - 0.5 + gap, x1 = ix + 0.5 - gap;
           const z0 = iz - 0.5 + gap, z1 = iz + 0.5 - gap;
-          drawQuad(project(x0, 1.5, z0), project(x1, 1.5, z0), project(x1, 1.5, z1), project(x0, 1.5, z1), color);
+          const pts = [project(x0, 1.5, z0), project(x1, 1.5, z0), project(x1, 1.5, z1), project(x0, 1.5, z1)];
+          if (info.isTarget) targetQuads.push({ pts, color: info.color });
+          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
         }
       }
+      // Left-front visible face
       for (let ix = -1; ix <= 1; ix++) {
         for (let iy = -1; iy <= 1; iy++) {
-          const color = getStickerAtCam(ix, iy, 1, [0, 0, 1]);
+          const info = getStickerInfoAtCam(ix, iy, 1, [0, 0, 1]);
           const x0 = ix - 0.5 + gap, x1 = ix + 0.5 - gap;
           const y0 = iy - 0.5 + gap, y1 = iy + 0.5 - gap;
-          drawQuad(project(x0, y1, 1.5), project(x1, y1, 1.5), project(x1, y0, 1.5), project(x0, y0, 1.5), color);
+          const pts = [project(x0, y1, 1.5), project(x1, y1, 1.5), project(x1, y0, 1.5), project(x0, y0, 1.5)];
+          if (info.isTarget) targetQuads.push({ pts, color: info.color });
+          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
         }
       }
+      // Right-front visible face
       for (let iz = -1; iz <= 1; iz++) {
         for (let iy = -1; iy <= 1; iy++) {
-          const color = getStickerAtCam(1, iy, iz, [1, 0, 0]);
+          const info = getStickerInfoAtCam(1, iy, iz, [1, 0, 0]);
           const z0 = iz - 0.5 + gap, z1 = iz + 0.5 - gap;
           const y0 = iy - 0.5 + gap, y1 = iy + 0.5 - gap;
-          drawQuad(project(1.5, y1, z1), project(1.5, y1, z0), project(1.5, y0, z0), project(1.5, y0, z1), color);
+          const pts = [project(1.5, y1, z1), project(1.5, y1, z0), project(1.5, y0, z0), project(1.5, y0, z1)];
+          if (info.isTarget) targetQuads.push({ pts, color: info.color });
+          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
         }
+      }
+
+      // Draw target pair stickers last so their bright white highlight border is never occluded
+      for (const tq of targetQuads) {
+        drawQuad(tq.pts[0], tq.pts[1], tq.pts[2], tq.pts[3], tq.color, true);
+      }
+
+      // If viewing a rotated wrong-slot or non-FR camera, draw tiny face orientation indicators at bottom
+      if (wrongSlot || camYaw !== 0) {
+        const faceMeta = CAM_YAW_FACE_LABELS[camYaw] || CAM_YAW_FACE_LABELS[0];
+        const fontSize = Math.max(8, Math.round(width * 0.095));
+        ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+        ctx.textBaseline = 'bottom';
+
+        ctx.fillStyle = faceMeta.leftColor;
+        ctx.textAlign = 'left';
+        ctx.fillText(faceMeta.left, 4, height - 2);
+
+        ctx.fillStyle = faceMeta.rightColor;
+        ctx.textAlign = 'right';
+        ctx.fillText(faceMeta.right, width - 4, height - 2);
       }
 
       ctx.restore();
@@ -2973,11 +3066,11 @@
       pausePlayback();
 
       const uCase = UNIFIED_F2L_CASES.find(c => c.id === caseId);
-      const wrongSlot = (customMeta && customMeta.wrongSlot) || (uCase && uCase.wrongRel) || null;
+      const actualWrongSlot = (customMeta && customMeta.wrongSlot) || (uCase && uCase.wrongRel ? getActualWrongSlot(uCase.wrongRel, slotKey) : null);
 
       appState.activeCaseId = caseId;
       appState.activeAlgSlot = slotKey;
-      appState.activeWrongSlot = wrongSlot;
+      appState.activeWrongSlot = actualWrongSlot;
       appState.activeAlgStr = algStr;
       appState.parsedMoves = parseAlg(algStr);
       appState.currentStep = 0;
@@ -2992,9 +3085,9 @@
       slotBadge.textContent = SLOT_LABELS[slotKey] || slotKey;
       rawAlgEl.innerHTML = formatAlgWithBracketsHTML(algStr);
 
-      if (wrongSlot) {
+      if (actualWrongSlot) {
         wrongBadge.classList.remove('hidden');
-        wrongBadge.textContent = `錯放: ${SLOT_LABELS[wrongSlot] || wrongSlot}`;
+        wrongBadge.textContent = `卡在: ${SLOT_LABELS[actualWrongSlot] || actualWrongSlot}`;
       } else {
         wrongBadge.classList.add('hidden');
       }
@@ -3035,10 +3128,10 @@
       }
 
       // Smart camera orientation
-      if (wrongSlot === 'BR' && slotKey === 'FR') {
+      if (actualWrongSlot === 'BR' && slotKey === 'FR') {
         setCameraPreset('RIGHT_BOTH');
-      } else if (wrongSlot) {
-        setCameraPreset(wrongSlot);
+      } else if (actualWrongSlot) {
+        setCameraPreset(actualWrongSlot);
       } else if (slotKey === 'FL' || slotKey === 'BL') {
         targetSpherical.theta = -0.58;
         targetSpherical.phi = 1.08;
@@ -3252,12 +3345,14 @@
             const primaryAlg = algObjs[0] ? algObjs[0].alg : '';
             const frPrimaryAlg = (caseItem.slots.FR && caseItem.slots.FR[0]) ? caseItem.slots.FR[0].alg : primaryAlg;
             const isCardActive = appState.activeCaseId === caseItem.id && appState.activeAlgSlot === slotKey;
+            const frWrongSlot = caseItem.wrongRel ? getActualWrongSlot(caseItem.wrongRel, 'FR') : null;
+            const slotWrongSlot = caseItem.wrongRel ? getActualWrongSlot(caseItem.wrongRel, slotKey) : null;
 
             const card = document.createElement('div');
             card.dataset.caseId = caseItem.id;
             card.className = `case-card rounded-xl p-4 flex flex-col gap-3 ${isCardActive ? 'active-card' : ''}`;
 
-            // Top Header with Large 110x110 FR Standard Reference Diagram + Title
+            // Top Header with Large 110x110 FR Standard Reference Diagram + Title + Optional Slot Radar
             const topHeader = document.createElement('div');
             topHeader.className = 'flex items-center justify-between gap-3 pb-2.5 border-b border-slate-800/80';
 
@@ -3269,9 +3364,9 @@
             frRefBox.title = 'FR 基準對照示意圖 (點擊直接播放 FR 解法)';
             const frRefCanvas = document.createElement('canvas');
             frRefCanvas.className = 'w-[110px] h-[110px] block';
-            renderCubeThumbnail(frRefCanvas, frPrimaryAlg, appState.maskMode, 'FR', caseItem.id, caseItem.wrongRel, 110);
+            renderCubeThumbnail(frRefCanvas, frPrimaryAlg, appState.maskMode, 'FR', caseItem.id, frWrongSlot, 110);
             const frRefBadge = document.createElement('span');
-            frRefBadge.className = 'absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-emerald-500/90 text-slate-950 font-extrabold text-[9px]';
+            frRefBadge.className = 'absolute top-1 right-1 px-1.5 py-0.2 rounded bg-emerald-500/90 text-slate-950 font-extrabold text-[9px]';
             frRefBadge.textContent = 'FR 基準圖';
             frRefBox.appendChild(frRefCanvas);
             frRefBox.appendChild(frRefBadge);
@@ -3284,14 +3379,11 @@
               `<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">${t}</span>`
             ).join('');
 
-            const wrongBadgeHtml = caseItem.wrongRel
-              ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-mono-alg bg-amber-500/15 text-amber-300">錯槽:${caseItem.wrongRel}</span>`
-              : '';
+            const radarHtml = slotWrongSlot ? `<div class="pt-0.5">${createSlotRadarHTML(slotWrongSlot, slotKey)}</div>` : '';
 
             titleCol.innerHTML = `
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="text-sm font-bold text-white">${caseItem.displayNum} ${caseItem.title}</span>
-                ${wrongBadgeHtml}
                 ${tagsHtml}
               </div>
               <div class="text-[11px] text-slate-400">
@@ -3300,6 +3392,7 @@
               <div class="text-[11px] text-amber-300/95 font-semibold">
                 口訣: ${generatePlainMnemonicText(frPrimaryAlg)}
               </div>
+              ${radarHtml}
             `;
 
             topHeaderLeft.appendChild(frRefBox);
@@ -3314,7 +3407,7 @@
             const canvas = document.createElement('canvas');
             canvas.className = 'w-[88px] h-[88px] rounded-xl bg-slate-950 border border-slate-800 shrink-0 cursor-pointer hover:border-sky-500/60 transition shadow-inner';
             const thumbAlg = (isCardActive && appState.activeAlgStr) ? appState.activeAlgStr : primaryAlg;
-            renderCubeThumbnail(canvas, thumbAlg, appState.maskMode, slotKey, caseItem.id, caseItem.wrongRel, 88);
+            renderCubeThumbnail(canvas, thumbAlg, appState.maskMode, slotKey, caseItem.id, slotWrongSlot, 88);
             canvas.onclick = () => selectCaseAndAlg(caseItem.id, slotKey, primaryAlg, true);
 
             const infoCol = document.createElement('div');
@@ -3353,7 +3446,7 @@
               `;
 
               btn.onclick = () => {
-                renderCubeThumbnail(canvas, algItem.alg, appState.maskMode, slotKey, caseItem.id, caseItem.wrongRel, 88);
+                renderCubeThumbnail(canvas, algItem.alg, appState.maskMode, slotKey, caseItem.id, slotWrongSlot, 88);
                 selectCaseAndAlg(caseItem.id, slotKey, algItem.alg, true, algItem.badge ? { note: `技巧提示：${algItem.badge}` } : null);
                 renderCasesList();
               };
@@ -3369,7 +3462,7 @@
 
           section.appendChild(grid);
         } else {
-          // 4-Slot Compare View with Large 112x112 FR Reference Diagram in the Title Header + 84x84 Slot Thumbnails
+          // 4-Slot Compare View with Large 112x112 FR Reference Diagram + 2x2 Slot Radar in Header + 88x88 Slot Thumbnails
           const list = document.createElement('div');
           list.className = 'flex flex-col gap-4';
 
@@ -3378,8 +3471,9 @@
             rowCard.dataset.caseId = caseItem.id;
             rowCard.className = `case-card rounded-xl p-4 flex flex-col gap-3.5 ${appState.activeCaseId === caseItem.id ? 'active-card' : ''}`;
 
-            // Header with Prominent 112x112 FR Standard Reference Diagram
             const frPrimaryAlg = (caseItem.slots.FR && caseItem.slots.FR[0]) ? caseItem.slots.FR[0].alg : '';
+            const frWrongSlot = caseItem.wrongRel ? getActualWrongSlot(caseItem.wrongRel, 'FR') : null;
+
             const header = document.createElement('div');
             header.className = 'flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80';
 
@@ -3392,9 +3486,9 @@
             frHeaderBox.title = '標準 FR (綠橘) Pair 狀態對照圖 — 點擊直接播放 FR 解法';
             const frHeaderCanvas = document.createElement('canvas');
             frHeaderCanvas.className = 'w-[112px] h-[112px] block';
-            renderCubeThumbnail(frHeaderCanvas, frPrimaryAlg, appState.maskMode, 'FR', caseItem.id, caseItem.wrongRel, 112);
+            renderCubeThumbnail(frHeaderCanvas, frPrimaryAlg, appState.maskMode, 'FR', caseItem.id, frWrongSlot, 112);
             const frHeaderTag = document.createElement('span');
-            frHeaderTag.className = 'absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-emerald-500/90 text-slate-950 font-extrabold text-[9px]';
+            frHeaderTag.className = 'absolute top-1 right-1 px-1.5 py-0.2 rounded bg-emerald-500/90 text-slate-950 font-extrabold text-[9px]';
             frHeaderTag.textContent = 'FR 基準圖';
             frHeaderBox.appendChild(frHeaderCanvas);
             frHeaderBox.appendChild(frHeaderTag);
@@ -3409,18 +3503,26 @@
             headerTitleCol.innerHTML = `
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-sm sm:text-base font-bold text-white">${caseItem.displayNum} ${caseItem.title}</span>
-                ${caseItem.wrongRel ? `<span class="px-2 py-0.5 rounded text-xs font-mono-alg bg-amber-500/15 text-amber-300 border border-amber-500/30">錯槽: ${caseItem.wrongRel}</span>` : ''}
                 ${tagsHtml}
               </div>
               <div class="text-xs text-slate-400 flex flex-wrap items-center gap-2">
                 <span>FR 基準公式: <code class="text-emerald-300 font-mono-alg">${frPrimaryAlg}</code></span>
                 <span class="text-amber-300/90 font-medium">口訣: ${generatePlainMnemonicText(frPrimaryAlg)}</span>
               </div>
+              ${frWrongSlot ? `<div class="text-[11px] text-sky-300/90">💡 錯槽高光模式：已自動調暗其餘無關槽位，白色亮框處即為走錯槽的目標塊</div>` : ''}
             `;
 
             headerLeft.appendChild(frHeaderBox);
             headerLeft.appendChild(headerTitleCol);
             header.appendChild(headerLeft);
+
+            // Right side of Header: 2x2 Top-Down Slot Transfer Radar for Wrong-Slot cases
+            if (frWrongSlot) {
+              const radarWrap = document.createElement('div');
+              radarWrap.innerHTML = createSlotRadarHTML(frWrongSlot, 'FR');
+              header.appendChild(radarWrap);
+            }
+
             rowCard.appendChild(header);
 
             const fourCols = document.createElement('div');
@@ -3429,18 +3531,27 @@
             ['FR', 'BR', 'FL', 'BL'].forEach(slotKey => {
               const slotAlgObjs = caseItem.slots[slotKey] || [];
               const primaryAlg = slotAlgObjs[0] ? slotAlgObjs[0].alg : '';
+              const slotWrong = caseItem.wrongRel ? getActualWrongSlot(caseItem.wrongRel, slotKey) : null;
 
               const slotBox = document.createElement('div');
               slotBox.className = 'bg-slate-950 border border-slate-800/80 rounded-xl p-2.5 flex items-start gap-2.5';
 
               const miniCanvas = document.createElement('canvas');
-              miniCanvas.className = 'w-[84px] h-[84px] rounded-lg bg-slate-900 border border-slate-800/80 shrink-0 cursor-pointer hover:border-sky-500/60 transition';
-              renderCubeThumbnail(miniCanvas, primaryAlg, appState.maskMode, slotKey, caseItem.id, caseItem.wrongRel, 84);
+              miniCanvas.className = 'w-[88px] h-[88px] rounded-lg bg-slate-900 border border-slate-800/80 shrink-0 cursor-pointer hover:border-sky-500/60 transition';
+              renderCubeThumbnail(miniCanvas, primaryAlg, appState.maskMode, slotKey, caseItem.id, slotWrong, 88);
               miniCanvas.onclick = () => selectCaseAndAlg(caseItem.id, slotKey, primaryAlg, true);
 
               const slotMeta = document.createElement('div');
               slotMeta.className = 'flex flex-col gap-1.5 min-w-0 flex-1';
-              slotMeta.innerHTML = `<span class="text-xs font-bold text-slate-300">${slotKey}</span>`;
+              const transferBadge = slotWrong
+                ? `<span class="text-[10px] font-mono-alg px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">卡${slotWrong}➔入${slotKey}</span>`
+                : '';
+              slotMeta.innerHTML = `
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-xs font-bold text-slate-200">${SLOT_LABELS[slotKey]}</span>
+                  ${transferBadge}
+                </div>
+              `;
 
               slotAlgObjs.forEach(algItem => {
                 const algBtn = document.createElement('button');
@@ -3448,15 +3559,13 @@
                 algBtn.className = `alg-btn text-left px-2 py-1 rounded-lg border text-[11px] font-mono-alg flex flex-col gap-0.5 ${
                   isSelected ? 'selected-alg' : 'bg-slate-900 border-slate-800 text-slate-300'
                 }`;
-                const mnemonicSub = isSelected
-                  ? `<span class="text-[10px] font-sans font-bold text-amber-300 truncate">口訣: ${generatePlainMnemonicText(algItem.alg)}</span>`
-                  : '';
+                const mnemonicSub = `<span class="text-[10px] font-sans ${isSelected ? 'font-bold text-amber-300' : 'text-slate-400'} truncate">口訣: ${generatePlainMnemonicText(algItem.alg)}</span>`;
                 algBtn.innerHTML = `
                   <span class="truncate">${formatAlgWithBracketsHTML(algItem.alg)}</span>
                   ${mnemonicSub}
                 `;
                 algBtn.onclick = () => {
-                  renderCubeThumbnail(miniCanvas, algItem.alg, appState.maskMode, slotKey, caseItem.id, caseItem.wrongRel, 84);
+                  renderCubeThumbnail(miniCanvas, algItem.alg, appState.maskMode, slotKey, caseItem.id, slotWrong, 88);
                   selectCaseAndAlg(caseItem.id, slotKey, algItem.alg, true);
                   renderCasesList();
                 };
@@ -3498,22 +3607,6 @@
       const firstCase = UNIFIED_F2L_CASES[0];
       selectCaseAndAlg(firstCase.id, 'FR', firstCase.slots.FR[0].alg, false);
       requestAnimationFrame(mainAnimationLoop);
-
-      // Custom Wrong-Slot Generator
-      document.getElementById('btn-generate-wrong-slot').addEventListener('click', () => {
-        const t = document.getElementById('ws-gen-target').value;
-        const w = document.getElementById('ws-gen-wrong').value;
-        const selType = document.getElementById('ws-gen-type');
-        const st = selType.value;
-        const alg = buildCustomWrongSlotAlg(t, w, st);
-        const typeLabel = selType.options[selType.selectedIndex].text;
-        selectCaseAndAlg(999, t, alg, true, {
-          wrongSlot: w,
-          code: '自訂',
-          title: `${SLOT_LABELS[t]} 卡在 ${SLOT_LABELS[w]} (${typeLabel})`,
-          note: `從 ${w} 槽提出目標塊後對齊入 ${t} 槽`
-        });
-      });
 
       // Slot Filter Tabs
       document.querySelectorAll('.slot-tab-btn').forEach(btn => {
