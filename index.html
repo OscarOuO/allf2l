@@ -195,10 +195,10 @@
             <span class="font-semibold text-amber-300 flex items-center gap-1">
               <span>💡 直覺中文口訣</span>
             </span>
-            <span class="text-[10px] text-slate-500 font-mono-alg">F壓/回 • U左/右 • R,L'上 • R',L下</span>
+            <span class="text-[10px] text-slate-500 font-mono-alg">F壓/回 • U右/U'左 • R,L'上 • R',L下</span>
           </div>
           <div id="mnemonic-phrase-display" class="text-xs font-bold tracking-wide text-slate-100 bg-slate-900/90 border border-slate-800 rounded px-2.5 py-1.5 leading-relaxed">
-            左 (上 右 下)
+            右 (上 左 下)
           </div>
           <div id="mnemonic-steps-detail" class="flex flex-wrap items-center gap-1 pt-0.5"></div>
         </div>
@@ -2638,7 +2638,7 @@
      * 3B. CHINESE MNEMONIC GENERATOR (口訣生成器)
      * Exact mapping requested:
      *   F = 壓, F' = 回, F2 = 壓兩下
-     *   U = 左, U' = 右, U2 = 左左
+     *   U = 右, U' = 左, U2 = 右右
      *   R = 上, R' = 下, R2 = 上上
      *   L' = 上, L = 下, L2 = 下下
      *************************************************************************/
@@ -2648,10 +2648,10 @@
         "F'":  { word: "回", hand: "" },
         "F2":  { word: "壓兩下", hand: "" },
         "F2'": { word: "回兩下", hand: "" },
-        "U":   { word: "左", hand: "" },
-        "U'":  { word: "右", hand: "" },
-        "U2":  { word: "左左", hand: "" },
-        "U2'": { word: "右右", hand: "" },
+        "U":   { word: "右", hand: "" },
+        "U'":  { word: "左", hand: "" },
+        "U2":  { word: "右右", hand: "" },
+        "U2'": { word: "左左", hand: "" },
         "R":   { word: "上", hand: "右" },
         "R'":  { word: "下", hand: "右" },
         "R2":  { word: "上上", hand: "右" },
@@ -2667,12 +2667,12 @@
         "l":   { word: "左雙下", hand: "l" },
         "f":   { word: "雙層壓", hand: "f" },
         "f'":  { word: "雙層回", hand: "f'" },
-        "d":   { word: "底左", hand: "d" },
-        "d'":  { word: "底右", hand: "d'" },
-        "u":   { word: "雙層左", hand: "u" },
-        "u'":  { word: "雙層右", hand: "u'" },
-        "D":   { word: "底右", hand: "D" },
-        "D'":  { word: "底左", hand: "D'" },
+        "d":   { word: "底右", hand: "d" },
+        "d'":  { word: "底左", hand: "d'" },
+        "u":   { word: "雙層右", hand: "u" },
+        "u'":  { word: "雙層左", hand: "u'" },
+        "D":   { word: "底左", hand: "D" },
+        "D'":  { word: "底右", hand: "D'" },
         "B":   { word: "後壓", hand: "B" },
         "B'":  { word: "後回", hand: "B'" },
         "B2":  { word: "後壓兩下", hand: "B2" },
@@ -2837,7 +2837,7 @@
         ];
       }
 
-      function drawQuad(p1, p2, p3, p4, fillColor, highlightTarget = false) {
+      function drawQuad(p1, p2, p3, p4, fillColor) {
         ctx.beginPath();
         ctx.moveTo(p1[0], p1[1]);
         ctx.lineTo(p2[0], p2[1]);
@@ -2846,19 +2846,12 @@
         ctx.closePath();
         ctx.fillStyle = fillColor;
         ctx.fill();
-        if (highlightTarget) {
-          ctx.lineWidth = Math.max(1.8, width * 0.022);
-          ctx.strokeStyle = '#f8fafc';
-          ctx.stroke();
-        } else {
-          ctx.lineWidth = Math.max(1.0, width * 0.014);
-          ctx.strokeStyle = '#090d16';
-          ctx.stroke();
-        }
+        ctx.lineWidth = Math.max(1.15, width * 0.014);
+        ctx.strokeStyle = '#090d16';
+        ctx.stroke();
       }
 
       const gap = 0.05;
-      const targetQuads = [];
 
       // Top face (U)
       for (let ix = -1; ix <= 1; ix++) {
@@ -2867,8 +2860,7 @@
           const x0 = ix - 0.5 + gap, x1 = ix + 0.5 - gap;
           const z0 = iz - 0.5 + gap, z1 = iz + 0.5 - gap;
           const pts = [project(x0, 1.5, z0), project(x1, 1.5, z0), project(x1, 1.5, z1), project(x0, 1.5, z1)];
-          if (info.isTarget) targetQuads.push({ pts, color: info.color });
-          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
+          drawQuad(pts[0], pts[1], pts[2], pts[3], info.color);
         }
       }
       // Left-front visible face
@@ -2878,8 +2870,7 @@
           const x0 = ix - 0.5 + gap, x1 = ix + 0.5 - gap;
           const y0 = iy - 0.5 + gap, y1 = iy + 0.5 - gap;
           const pts = [project(x0, y1, 1.5), project(x1, y1, 1.5), project(x1, y0, 1.5), project(x0, y0, 1.5)];
-          if (info.isTarget) targetQuads.push({ pts, color: info.color });
-          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
+          drawQuad(pts[0], pts[1], pts[2], pts[3], info.color);
         }
       }
       // Right-front visible face
@@ -2889,14 +2880,8 @@
           const z0 = iz - 0.5 + gap, z1 = iz + 0.5 - gap;
           const y0 = iy - 0.5 + gap, y1 = iy + 0.5 - gap;
           const pts = [project(1.5, y1, z1), project(1.5, y1, z0), project(1.5, y0, z0), project(1.5, y0, z1)];
-          if (info.isTarget) targetQuads.push({ pts, color: info.color });
-          else drawQuad(pts[0], pts[1], pts[2], pts[3], info.color, false);
+          drawQuad(pts[0], pts[1], pts[2], pts[3], info.color);
         }
-      }
-
-      // Draw target pair stickers last so their bright white highlight border is never occluded
-      for (const tq of targetQuads) {
-        drawQuad(tq.pts[0], tq.pts[1], tq.pts[2], tq.pts[3], tq.color, true);
       }
 
       // If viewing a rotated wrong-slot or non-FR camera, draw tiny face orientation indicators at bottom
@@ -2955,6 +2940,112 @@
       return parseAlg(algStr).map(m => m.raw).join(' ');
     }
 
+    /**
+     * Compares the physical F2L state (all non-U-home pieces: centers, cross, 4 F2L pairs)
+     * of two logical cubes. Returns true if every F2L piece is in the exact same position and orientation!
+     */
+    function areF2LStatesIdentical(cubeA, cubeB) {
+      for (let i = 0; i < cubeA.length; i++) {
+        const ca = cubeA[i];
+        if (ca.home[1] === 1) continue; // Ignore U-layer yellow pieces
+        const cb = cubeB[i];
+        if (ca.pos[0] !== cb.pos[0] || ca.pos[1] !== cb.pos[1] || ca.pos[2] !== cb.pos[2]) {
+          return false;
+        }
+        for (let s = 0; s < ca.stickers.length; s++) {
+          const na = ca.stickers[s].normal;
+          const nb = cb.stickers[s].normal;
+          if (na[0] !== nb[0] || na[1] !== nb[1] || na[2] !== nb[2]) return false;
+        }
+      }
+      return true;
+    }
+
+    /**
+     * Checks if `candidateAlg` produces the exact same initial F2L state as `refCube`,
+     * or if prepending a U / U' / U2 AUF aligns it 100% with `refCube`.
+     * Returns the aligned algorithm string if it belongs to the same state, or null if incompatible!
+     */
+    function alignAlgToReferenceState(candidateAlg, refCube) {
+      const prefixes = ["", "U ", "U' ", "U2 "];
+      for (const pfx of prefixes) {
+        let testAlg = pfx ? (pfx + candidateAlg) : candidateAlg;
+        // Simplify double leading U moves if candidateAlg already starts with U
+        if (pfx) {
+          testAlg = simplifyLeadingU(pfx.trim(), candidateAlg);
+        }
+        const testCube = computeCaseStartLogicalCube(testAlg);
+        if (areF2LStatesIdentical(refCube, testCube)) {
+          return testAlg;
+        }
+      }
+      return null;
+    }
+
+    function simplifyLeadingU(uPrefix, algStr) {
+      const uVal = { "U": 1, "U2": 2, "U2'": 2, "U'": 3 };
+      const valToStr = { 0: "", 1: "U", 2: "U2", 3: "U'" };
+      const m = algStr.match(/^\s*(U2'|U2|U'|U)\b\s*(.*)$/);
+      if (!m) return `${uPrefix} ${algStr}`;
+      const v1 = uVal[uPrefix] || 0;
+      const v2 = uVal[m[1]] || 0;
+      const sum = (v1 + v2) % 4;
+      const rest = m[2].trim();
+      return sum === 0 ? rest : `${valToStr[sum]} ${rest}`.trim();
+    }
+
+    /**
+     * Pure 90°/180° y-rotation conjugation of an FR algorithm to any target slot (FR, BR, BL, FL).
+     * Guarantees 100% identical relative geometry between the target slot, trapped wrong slot,
+     * corner orientation, and edge position/orientation across all 4 slots!
+     */
+    function conjugateFRAlgByYaw(algStr, targetSlot) {
+      const yawSteps = SLOT_YAW_INDEX[targetSlot] ?? 0; // FR:0, BR:1 (y'), BL:2 (y2), FL:3 (y)
+      if (yawSteps === 0) return algStr;
+
+      // Under y' (view rotated 90° CW to look at BR):
+      // Front(F) -> Right(R) -> Back(B) -> Left(L) -> Front(F)
+      const singleStepMap = {
+        "R": "B", "B": "L", "L": "F", "F": "R",
+        "r": "b", "b": "l", "l": "f", "f": "r",
+        "U": "U", "D": "D", "u": "u", "d": "d", "y": "y", "E": "E",
+        "S": "M'", "S'": "M", "S2": "M2",
+        "M": "S",  "M'": "S'", "M2": "S2"
+      };
+
+      function rotateTokenOnce(tok) {
+        if (singleStepMap[tok]) return singleStepMap[tok];
+        const face = tok[0];
+        const mod = tok.slice(1);
+        if (singleStepMap[face]) {
+          const mapped = singleStepMap[face];
+          if (mapped.endsWith("'")) {
+            // Invert modifier
+            if (mod === "") return mapped;
+            if (mod === "'") return mapped[0];
+            return mapped[0] + mod;
+          }
+          return mapped + mod;
+        }
+        return tok;
+      }
+
+      const tokenRegex = /(\(|\)|\[|\])|([RLUDFBrludfbMESxyz](?:2'|'|2)?)/g;
+      let result = algStr.replace(tokenRegex, (full, bracket, moveTok) => {
+        if (bracket) return bracket;
+        let t = moveTok;
+        for (let s = 0; s < yawSteps; s++) {
+          t = rotateTokenOnce(t);
+        }
+        return t;
+      });
+      return result;
+    }
+
+    /**
+     * Left-Right (F/B plane) mirror of an FR algorithm to FL (or BR to BL),
+     * plus ergonomic rotation-free equivalents where applicable.
+     */
     function buildUnifiedF2LDatabase() {
       const unified = [];
 
@@ -2971,15 +3062,24 @@
         };
 
         ['FR', 'BR', 'FL', 'BL'].forEach(slotKey => {
-          (std[slotKey] || []).forEach(algStr => {
-            entry.slots[slotKey].push({ alg: algStr, badge: null });
-          });
+          const rawList = std[slotKey] || [];
+          if (rawList.length === 0) return;
+          const primaryAlg = rawList[0];
+          const refCube = computeCaseStartLogicalCube(primaryAlg);
+          entry.slots[slotKey].push({ alg: primaryAlg, badge: null });
+
+          for (let i = 1; i < rawList.length; i++) {
+            const aligned = alignAlgToReferenceState(rawList[i], refCube);
+            if (aligned && !entry.slots[slotKey].some(x => normalizeMovesKey(x.alg) === normalizeMovesKey(aligned))) {
+              entry.slots[slotKey].push({ alg: aligned, badge: null });
+            }
+          }
         });
 
         unified.push(entry);
       });
 
-      // Merge Cube Academy #201-#241 into Standard #1-#41
+      // Merge Cube Academy #201-#241 into Standard #1-#41 with strict AUF & state verification
       CUBE_ACADEMY_CASES.forEach(ca => {
         const targetStdId = CA_TO_STD_MAP[ca.id];
         if (!targetStdId) return;
@@ -2992,24 +3092,28 @@
 
         (ca.algs || []).forEach(aItem => {
           const list = entry.slots[aItem.slot];
-          if (!list) return;
-          const normKey = normalizeMovesKey(aItem.alg);
+          if (!list || list.length === 0) return;
+          const refCube = computeCaseStartLogicalCube(list[0].alg);
+          const alignedAlg = alignAlgToReferenceState(aItem.alg, refCube);
+          if (!alignedAlg) return; // Skip if it belongs to a different mirror sub-case
+
+          const normKey = normalizeMovesKey(alignedAlg);
           const existingIdx = list.findIndex(x => normalizeMovesKey(x.alg) === normKey);
           if (existingIdx !== -1) {
-            // Upgrade plain notation to Cube Academy's (setup) [insert] bracketed notation & badge
-            if (aItem.alg.includes('[') && !list[existingIdx].alg.includes('[')) {
-              list[existingIdx].alg = aItem.alg;
+            if (alignedAlg.includes('[') && !list[existingIdx].alg.includes('[')) {
+              list[existingIdx].alg = alignedAlg;
             }
             if (aItem.badge && !list[existingIdx].badge) {
               list[existingIdx].badge = aItem.badge;
             }
           } else {
-            list.push({ alg: aItem.alg, badge: aItem.badge || null });
+            list.push({ alg: alignedAlg, badge: aItem.badge || null });
           }
         });
       });
 
-      // 2. Wrong-Slot / Advanced Cases (#42 - #95) merged from SpeedCubeDB AF2L + Cube Academy Wrong Slot
+      // 2. Wrong-Slot / Advanced Cases (#42 - #95)
+      // Built with strict 4-slot rotational consistency from the canonical FR wrong-slot state!
       SPEEDCUBEDB_AF2L_CASES.forEach((af, idx) => {
         const unifiedNum = 42 + idx; // #42 to #95
         const entry = {
@@ -3023,16 +3127,43 @@
           slots: { FR: [], BR: [], FL: [], BL: [] }
         };
 
+        const canonicalFRAlg = af.FR[0];
+
         ['FR', 'BR', 'FL', 'BL'].forEach(slotKey => {
-          (af[slotKey] || []).forEach(algStr => {
-            entry.slots[slotKey].push({ alg: algStr, badge: null });
+          // 1) Derive the exact geometric equivalent for this slot via pure y-conjugation of canonicalFRAlg
+          const exactConjugatedAlg = conjugateFRAlgByYaw(canonicalFRAlg, slotKey);
+          const refCube = computeCaseStartLogicalCube(exactConjugatedAlg);
+
+          // Also generate a rotation-nested intuitive version if the conjugated alg uses B/b moves
+          const candidatePool = [];
+          // First check if any of the hand-written algs in af[slotKey] match this exact state (up to U AUF)
+          (af[slotKey] || []).forEach(rawAlg => {
+            candidatePool.push({ alg: rawAlg, badge: null });
+          });
+
+          // Add the pure conjugated alg
+          candidatePool.push({ alg: exactConjugatedAlg, badge: null });
+
+          // Add ergonomic y-rotation wrapper of FR primary alg for back/side slots
+          if (slotKey === 'BR') candidatePool.push({ alg: `y' ${canonicalFRAlg}`, badge: '轉體順手' });
+          else if (slotKey === 'FL') candidatePool.push({ alg: `y ${canonicalFRAlg}`, badge: '轉體順手' });
+          else if (slotKey === 'BL') candidatePool.push({ alg: `y2 ${canonicalFRAlg}`, badge: 'y2 標準' });
+
+          candidatePool.forEach(cand => {
+            const aligned = alignAlgToReferenceState(cand.alg, refCube);
+            if (aligned) {
+              const normKey = normalizeMovesKey(aligned);
+              if (!entry.slots[slotKey].some(x => normalizeMovesKey(x.alg) === normKey)) {
+                entry.slots[slotKey].push({ alg: aligned, badge: cand.badge });
+              }
+            }
           });
         });
 
         unified.push(entry);
       });
 
-      // Merge Cube Academy Wrong Slot (#242-#277) into #42-#95
+      // Merge Cube Academy Wrong Slot (#242-#277) into #42-#95 only where state matches 100%
       CUBE_ACADEMY_CASES.forEach(ca => {
         const targetAfId = CA_WRONG_TO_AF2L_MAP[ca.id];
         if (!targetAfId) return;
@@ -3041,18 +3172,22 @@
 
         (ca.algs || []).forEach(aItem => {
           const list = entry.slots[aItem.slot];
-          if (!list) return;
-          const normKey = normalizeMovesKey(aItem.alg);
+          if (!list || list.length === 0) return;
+          const refCube = computeCaseStartLogicalCube(list[0].alg);
+          const alignedAlg = alignAlgToReferenceState(aItem.alg, refCube);
+          if (!alignedAlg) return;
+
+          const normKey = normalizeMovesKey(alignedAlg);
           const existingIdx = list.findIndex(x => normalizeMovesKey(x.alg) === normKey);
           if (existingIdx !== -1) {
-            if (aItem.alg.includes('[') && !list[existingIdx].alg.includes('[')) {
-              list[existingIdx].alg = aItem.alg;
+            if (alignedAlg.includes('[') && !list[existingIdx].alg.includes('[')) {
+              list[existingIdx].alg = alignedAlg;
             }
             if (aItem.badge && !list[existingIdx].badge) {
               list[existingIdx].badge = aItem.badge;
             }
           } else {
-            list.push({ alg: aItem.alg, badge: aItem.badge || 'CA 實戰' });
+            list.push({ alg: alignedAlg, badge: aItem.badge || 'CA 實戰' });
           }
         });
       });
@@ -3509,7 +3644,7 @@
                 <span>FR 基準公式: <code class="text-emerald-300 font-mono-alg">${frPrimaryAlg}</code></span>
                 <span class="text-amber-300/90 font-medium">口訣: ${generatePlainMnemonicText(frPrimaryAlg)}</span>
               </div>
-              ${frWrongSlot ? `<div class="text-[11px] text-sky-300/90">💡 錯槽高光模式：已自動調暗其餘無關槽位，白色亮框處即為走錯槽的目標塊</div>` : ''}
+              ${frWrongSlot ? `<div class="text-[11px] text-sky-300/90">💡 錯槽聚焦模式：已自動調暗無關槽位，僅突顯中心塊與目前錯放的目標 Pair</div>` : ''}
             `;
 
             headerLeft.appendChild(frHeaderBox);
